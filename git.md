@@ -153,3 +153,21 @@ ssh-keygen -t rsa -C "邮箱地址"
 
 * 验证`ssh -T git@github.com`,显示`Hi ...! You've successfully authenticated, but GitHub does not provide shell access.`
 
+### 3.2从远程库克隆
+
+* 用命令`git clone`克隆一个本地库，例如：
+
+```cmd
+$ git clone git@github.com:userName/projectName.git
+```
+
+* github允许你本地仓库有的东西，远程仓库里没有，但不允许远程仓库有的东西，你本地仓库没有。同步命令：
+
+```cmd
+git pull --rebase origin master
+```
+
+
+
+
+
