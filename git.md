@@ -135,6 +135,7 @@ Git管理的是修改，当你用`git add`命令后，在工作区的第一次�
 
 ```cmd
 git remote add origin git@server-name:path/repo-name.git
+git remote rm origin #删除已有的远程库
 ```
 
 * 本地初次推送若已经有ssh-key，并添加到GitHub账户SSH Keys中，则直接进行推送
@@ -235,3 +236,204 @@ $ git branch -d dev
 
 ### 4.2 解决冲突
 
+* `git merge <name>`合并时，`master`分支和`feature1`分支各自都分别有新的提交,比如有相同的readme文件但内容不同，会发生冲突。查看冲突内容，比如：
+
+```cmd
+<<<<<<< HEAD
+Creating a new branch is quick & simple.
+=======
+Creating a new branch is quick AND simple.
+>>>>>>> feature1
+```
+
+* Git用`<<<<<<<`，`=======`，`>>>>>>>`标记出不同分支的内容，我们修改对应冲突位置的内容使其相同，再次提交即可。
+
+* 用`$ git log --graph --pretty=oneline --abbrev-commit`命令可以看到分支合并图。
+
+### 4.3分支管理策略
+
+​	合并分支时，如果可能，Git会用`Fast forward`模式，但这种模式下，删除分支后，会丢掉分支信息。
+
+如果要强制禁用`Fast forward`模式，Git就会在merge时生成一个新的commit，这样，从分支历史上就可以看出分支信息。
+
+​	准备合并`dev`分支，请注意`--no-ff`参数，表示禁用`Fast forward`：
+
+```cmd
+$ git merge --no-ff -m "merge with no-ff" dev
+```
+
+​	因为本次合并要创建一个新的commit，所以加上`-m`参数，把commit描述写进去。合并后，我们用`git log`看看分支历史。
+
+​	**分支策略**
+
+在实际开发中，我们应该按照几个基本原则进行分支管理：
+
+* 首先，`master`分支应该是非常稳定的，也就是仅用来发布新版本，平时不能在上面干活；
+
+* 那在哪干活呢？干活都在`dev`分支上，也就是说，`dev`分支是不稳定的，到某个时候，比如1.0版本发布时，再把`dev`分支合并到`master`上，在`master`分支发布1.0版本；
+
+* 你和你的小伙伴们每个人都在`dev`分支上干活，每个人都有自己的分支，时不时地往`dev`分支上合并就可以了。
+
+### 4.4Bug分支
+
+* Git还提供了一个`git stash`功能，可以把当前工作现场“储藏”起来得到干净工作区，等以后恢复现场后继续工作
+
+* 回到主分支创建分支修复bug,合并后删除hug分支
+* 用`git stash list`命令看看工作现场，恢复现场
+  * 一是用`git stash apply stashid`恢复，但是恢复后，stash内容并不删除，你需要用`git stash drop`来删除；
+  * 另一种方式是用`git stash pop`，恢复的同时把stash内容也删了。
+
+* 在master分支上修复的bug，想要合并到当前dev分支，可以用`git cherry-pick <commit>`命令，把bug提交的修改“复制”到当前分支，避免重复劳动。
+
+### 4.5Feature分支
+
+开发新功能
+
+* 开发一个新feature，最好新建一个分支；
+
+* 如果要丢弃一个没有被合并过的分支，可以通过`git branch -D <name>`强行删除。
+
+### 4.6多人协作
+
+#### 推送分支
+
+Git自动把本地的`master`分支和远程的`master`分支对应起来了，并且，远程仓库的默认名称是`origin`.
+
+* `git remote -v`显示远程库详细信息
+
+```
+$ git remote -v
+origin  git@github.com:michaelliao/learngit.git (fetch)
+origin  git@github.com:michaelliao/learngit.git (push)
+```
+
+上面显示了可以抓取和推送的`origin`的地址。如果没有推送权限，就看不到push的地址。
+
+* 推送分支，就是把该分支上的所有本地提交推送到远程库`git push origin master`;推送其他分支：`git push origin dev`
+  * `master`分支是主分支，因此要时刻与远程同步；
+  * `dev`分支是开发分支，团队所有成员都需要在上面工作，所以也需要与远程同步；
+  * bug分支只用于在本地修复bug，就没必要推到远程了，除非老板要看看你每周到底修复了几个bug；
+  * feature分支是否推到远程，取决于你是否和你的小伙伴合作在上面开发。
+
+#### 抓取分支
+
+​	你的小伙伴的最新提交和你试图推送的提交有冲突，解决办法也很简单，Git已经提示我们，先用`git pull`把最新的提交从`origin/dev`抓下来，然后，在本地合并，解决冲突，再推送
+
+* ` git branch --set-upstream-to=origin/dev dev`指定`dev`分支和远程`origin/dev`分支的链接
+* 再`git pull`
+
+* `git commit -m "..."`解决冲突并提交
+* `git push`
+
+因此，多人协作的工作模式通常是这样：
+
+1. 首先，可以试图用`git push origin <branch-name>`推送自己的修改；
+2. 如果推送失败，则因为远程分支比你的本地更新，需要先用`git pull`试图合并；
+3. 如果`git pull`也失败，原因时没有指定分支和远程分支的链接，使用`git branch --set-upstream-to=origin/dev dev`
+4. 如果合并有冲突，则解决冲突，并在本地提交；
+5. 没有冲突或者解决掉冲突后，再用`git push origin <branch-name>`推送就能成功！
+
+如果`git pull`提示`no tracking information`，则说明本地分支和远程分支的链接关系没有创建，用命令`git branch --set-upstream-to <branch-name> origin/<branch-name>`。
+
+这就是多人协作的工作模式，一旦熟悉了，就非常简单。
+
+#### summary
+
+* `git remote -v`查看远程库信息
+* 本栋新建的分支如果不推送到远程，对其他人不可见
+* 从本地推送分支，使用`git push origin branch-name`如果推送失败，先用`git pull`抓取远程的新提交
+* 在本地创建和远程分支对应的分支，使用`git checkout -b branch-name origin/branch-name`本地和远程分支名称最好一致
+* 建立本地分支和远程分支的关联，使用`git branch --set-upstream-to=origin/dev dev`建立连接
+* `git pull`抓取远程分支，有冲突就先处理冲突
+
+### 4.7 rebase
+
+- rebase操作可以把本地未push的分叉提交历史整理成直线；
+- rebase的目的是使得我们在查看历史提交的变化时更容易，因为分叉的提交需要三方对比。
+
+#### 标签管理
+
+- 命令`git tag <tagname> <commit_id>`用于新建一个标签，默认为`HEAD`，也可以指定一个commit id；
+- 命令`git tag -a <tagname> -m "blablabla..."`创建带有说明的标签，用`-a`指定标签名，`-m`指定说明文字
+- 命令`git tag`可以查看所有标签。
+
+#### 操作标签
+
+- 命令`git push origin <tagname>`可以推送一个本地标签；
+- 命令`git push origin --tags`可以推送全部未推送过的本地标签；
+- 命令`git tag -d <tagname>`可以删除一个本地标签；
+- 命令`git push origin :refs/tags/<tagname>`可以删除一个远程标签。
+
+## 5.Gitee
+
+一个本地库能不能既关联GitHub，又关联Gitee呢? git给远程库起的默认名称是`origin`，如果有多个远程库，我们需要用不同的名称来标识不同的远程库
+
+* 先删除已关联origin远程库`git remote rm origin`
+* `git remote add github git@githun.com:username/proj.git`先关联github远程库，这个远程库名为`github`,不叫`origin`
+* 关联Gitee的远程库`git remote add gitee git@gitee.com:username/proj.git`
+
+* `git remote -v`可看到两个远程库
+* `git push github master `推送到`github`,`git push gitee master`推送到`gitee`
+
+## 6.自定义Git
+
+我们已经配置了`user.name`和`user.email`，实际上，Git还有很多可配置项
+
+* `git config --global color.ui true`显示颜色
+
+### 6.1忽略特殊文件
+
+- 忽略某些文件时，需要编写`.gitignore`；
+- `.gitignore`文件本身要放到版本库里，并且可以对`.gitignore`做版本管理！
+
+### 6.2配置别名
+
+告诉Git，以后`st`就表示`status`：
+
+```
+$ git config --global alias.st status
+```
+
+`--global`参数是全局参数，也就是这些命令在这台电脑的所有Git仓库下都有用。
+
+### 6.3搭建Git服务器
+
+​	搭建Git服务器需要准备一台运行Linux的机器，强烈推荐用Ubuntu或Debian，这样，通过几条简单的`apt`命令就可以完成安装。
+
+* 第一步，安装`git`: `sudo apt-get install`
+
+* 第二步，创建`git`用户：用来运行`git`服务器: `sudo adduser git`
+
+* 第三步，创建证书登录：收集所有需要登录的用户的公钥，就是他们自己的`id_rsa.pub`文件，把所有公钥导入到`/home/git/.ssh/authorized_keys`文件里，一行一个。
+
+* 第四步，初始化Git仓库：先选定一个目录作为Git仓库，假定为`/srv/sample.git`，在`/srv`目录下输入命令：`sudo git init --bare sample.git`。Git就会创建一个裸仓库，裸仓库没有工作区，因为服务器上的Git仓库纯粹是为了共享，所以不让用户直接登录到服务器上去改工作区，并且服务器上的Git仓库通常都以`.git`结尾
+
+* 把owner改为`git`：`sudo chown  -R git:git sample.git`
+
+* 第五步，禁用shell登录：
+
+  出于安全考虑，第二步创建的git用户不允许登录shell，这可以通过编辑`/etc/passwd`文件完成。找到类似下面的一行：
+
+  ```
+  git:x:1001:1001:,,,:/home/git:/bin/bash
+  ```
+
+  改为：
+
+  ```
+  git:x:1001:1001:,,,:/home/git:/usr/bin/git-shell
+  ```
+
+  这样，`git`用户可以正常通过ssh使用git，但无法登录shell，因为我们为`git`用户指定的`git-shell`每次一登录就自动退出。
+
+* 第六步，克隆远程仓库：
+
+  现在，可以通过`git clone`命令克隆远程仓库了，在各自的电脑上运行：
+
+  ```
+  $ git clone git@server:/srv/sample.git
+  Cloning into 'sample'...
+  warning: You appear to have cloned an empty repository.
+  ```
+
+  剩下的推送就简单了。
